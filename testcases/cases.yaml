@@ -1,0 +1,322 @@
+# Documented test cases for the LernWerk platform.
+# automation: SMK-xx (Playwright smoke test), unit (Vitest), manual
+- id: TC-001
+  title: Health endpoint returns ok
+  area: deployment
+  priority: P1
+  preconditions: Instance deployed
+  steps: [Send GET /api/health]
+  expected: HTTP 200 with status "ok"
+  automation: SMK-01
+- id: TC-002
+  title: Health endpoint reports the deployed version
+  area: deployment
+  priority: P1
+  preconditions: Version 1.0.0 deployed to staging
+  steps: [Send GET /api/health on the staging port, Compare "version" with the release that was deployed]
+  expected: version equals 1.0.0 and env equals staging
+  automation: SMK-01
+- id: TC-003
+  title: Staging and production run on separate ports
+  area: deployment
+  priority: P2
+  preconditions: Both environments deployed
+  steps: [Run npm run envs:status]
+  expected: staging answers on 4101 and production on 4102, each with its own env name
+  automation: manual
+- id: TC-004
+  title: Promotion is blocked without a green staging gate
+  area: deployment
+  priority: P1
+  preconditions: Staging gate report missing or containing failures
+  steps: [Run npm run promote]
+  expected: Command exits with "Promotion blocked" and production is unchanged
+  automation: unit
+- id: TC-005
+  title: Rollback restores the previous version
+  area: deployment
+  priority: P1
+  preconditions: Production has run 1.0.0 and now runs 1.1.0
+  steps: [Run npm run rollback -- production, Send GET /api/health on port 4102]
+  expected: version is 1.0.0 again and the history no longer lists it as previous
+  automation: unit
+- id: TC-006
+  title: Releases are immutable
+  area: deployment
+  priority: P2
+  preconditions: Release 1.0.0 exists
+  steps: [Run npm run release -- 1.0.0 again]
+  expected: Command fails with "already exists"
+  automation: manual
+- id: TC-007
+  title: Content API refuses anonymous requests
+  area: login
+  priority: P1
+  preconditions: No session cookie
+  steps: [Send GET /api/content]
+  expected: HTTP 401
+  automation: SMK-14
+- id: TC-008
+  title: Anonymous visitor is redirected to sign in
+  area: login
+  priority: P1
+  preconditions: Not signed in
+  steps: [Open /content]
+  expected: Browser ends on /login with the "Sign in" heading
+  automation: SMK-02
+- id: TC-009
+  title: Wrong password is rejected
+  area: login
+  priority: P1
+  preconditions: Account "editor" exists
+  steps: [Open /login, Enter editor / wrong password, Press Sign in]
+  expected: Message "Invalid username or password", still on /login
+  automation: SMK-03
+- id: TC-010
+  title: Unknown user is rejected
+  area: login
+  priority: P2
+  preconditions: none
+  steps: [Open /login, Enter nobody / anything, Press Sign in]
+  expected: Same message as for a wrong password (no user enumeration)
+  automation: unit
+- id: TC-011
+  title: Editor signs in
+  area: login
+  priority: P1
+  preconditions: Account "editor" exists
+  steps: [Open /login, Enter editor / editor-pass, Press Sign in]
+  expected: Content list opens and header shows "Erika Editor"
+  automation: SMK-04
+- id: TC-012
+  title: Session cookie is HttpOnly
+  area: login
+  priority: P2
+  preconditions: none
+  steps: [Sign in, Inspect the Set-Cookie header]
+  expected: Cookie "sid" has HttpOnly and SameSite=Lax
+  automation: unit
+- id: TC-013
+  title: Logout ends the session
+  area: login
+  priority: P1
+  preconditions: Signed in as editor
+  steps: [Press Log out, Open /content]
+  expected: Redirect to /login
+  automation: SMK-13
+- id: TC-014
+  title: Old session token is invalid after logout
+  area: login
+  priority: P1
+  preconditions: Signed in, token copied
+  steps: [Press Log out, Send GET /api/content with the old token]
+  expected: HTTP 401
+  automation: unit
+- id: TC-015
+  title: Content list is complete
+  area: content
+  priority: P1
+  preconditions: Seed data loaded
+  steps: [Sign in, Open /content]
+  expected: All 8 seeded learning units are listed
+  automation: SMK-05
+- id: TC-016
+  title: Content list is sorted by title
+  area: content
+  priority: P3
+  preconditions: Seed data loaded
+  steps: [Sign in, Open /content]
+  expected: Titles appear in alphabetical order
+  automation: SMK-05
+- id: TC-017
+  title: Learning unit opens
+  area: content
+  priority: P1
+  preconditions: Signed in
+  steps: [Click "Photosynthesis in five steps"]
+  expected: Title and text are shown, text mentions glucose
+  automation: SMK-06
+- id: TC-018
+  title: Unknown content shows 404
+  area: content
+  priority: P2
+  preconditions: Signed in
+  steps: [Open /content/does-not-exist]
+  expected: HTTP 404 page, no server error
+  automation: SMK-07
+- id: TC-019
+  title: Viewer cannot open the editor
+  area: content
+  priority: P1
+  preconditions: Signed in as viewer
+  steps: [Open /content/photosynthesis/edit]
+  expected: HTTP 403 "Editors only"
+  automation: unit
+- id: TC-020
+  title: Viewer does not see the Edit link
+  area: content
+  priority: P3
+  preconditions: Signed in as viewer
+  steps: [Open any learning unit]
+  expected: No "Edit" link is rendered
+  automation: unit
+- id: TC-021
+  title: Content text with HTML is escaped
+  area: content
+  priority: P1
+  preconditions: Signed in as editor
+  steps: [Save a title "<script>alert(1)</script>", Open the unit]
+  expected: Title is shown as text; no script element is created
+  automation: unit
+- id: TC-022
+  title: Search ignores case
+  area: search
+  priority: P1
+  preconditions: Signed in
+  steps: [Search for "FRACTIONS"]
+  expected: '"Fractions: the basics" is in the results'
+  automation: SMK-08
+- id: TC-023
+  title: Search finds words with umlauts
+  area: search
+  priority: P2
+  preconditions: Signed in
+  steps: [Search for "ubungen"]
+  expected: '"Übungen zur Bruchrechnung" is in the results'
+  automation: SMK-09
+- id: TC-024
+  title: Search returns every match
+  area: search
+  priority: P1
+  preconditions: Signed in
+  steps: [Search for "maths"]
+  expected: Both Maths units are listed (2 results)
+  automation: SMK-09
+- id: TC-025
+  title: Empty search shows a validation message
+  area: search
+  priority: P2
+  preconditions: Signed in
+  steps: [Open /search?q=]
+  expected: HTTP 400 with "Please enter a search term"
+  automation: SMK-10
+- id: TC-026
+  title: Title matches rank above body matches
+  area: search
+  priority: P3
+  preconditions: Signed in
+  steps: [Search for "fractions"]
+  expected: The unit with "Fractions" in its title is the first result
+  automation: unit
+- id: TC-027
+  title: Multi word search requires all words
+  area: search
+  priority: P3
+  preconditions: Signed in
+  steps: [Search for "linear equations"]
+  expected: Only "Solving linear equations" is returned
+  automation: unit
+- id: TC-028
+  title: Search API returns JSON
+  area: search
+  priority: P2
+  preconditions: Signed in
+  steps: [Send GET /api/search?q=essay]
+  expected: HTTP 200, JSON list with id, title and score
+  automation: unit
+- id: TC-029
+  title: Edit and save persists the change
+  area: editor
+  priority: P1
+  preconditions: Signed in as editor
+  steps: [Open the smoke test note, Press Edit, Change the body, Press Save, Reload]
+  expected: '"Saved" message, new body shown after reload'
+  automation: SMK-11
+- id: TC-030
+  title: Save increments the revision
+  area: editor
+  priority: P2
+  preconditions: Signed in as editor
+  steps: [Note the revision, Edit and save]
+  expected: Revision is one higher
+  automation: SMK-11
+- id: TC-031
+  title: Empty title is rejected
+  area: editor
+  priority: P1
+  preconditions: Signed in as editor
+  steps: [Open the editor, Set the title to spaces only, Press Save]
+  expected: Message "Title must not be empty", nothing saved
+  automation: SMK-12
+- id: TC-032
+  title: Title longer than 120 characters is rejected
+  area: editor
+  priority: P3
+  preconditions: Signed in as editor
+  steps: [Enter a 121 character title, Press Save]
+  expected: Message "Title must be at most 120 characters"
+  automation: unit
+- id: TC-033
+  title: Title whitespace is trimmed
+  area: editor
+  priority: P3
+  preconditions: Signed in as editor
+  steps: [Enter "  Fractions  " as title, Press Save]
+  expected: Stored title is "Fractions"
+  automation: unit
+- id: TC-034
+  title: Saved data survives a restart
+  area: editor
+  priority: P1
+  preconditions: A unit was edited
+  steps: [Redeploy the same version, Open the unit]
+  expected: Edited text is still there (data directory is outside the release)
+  automation: unit
+- id: TC-035
+  title: Saved data survives a version upgrade
+  area: maintenance
+  priority: P1
+  preconditions: A unit was edited on 1.0.0
+  steps: [Deploy 1.1.0, Open the unit]
+  expected: Edited text is still there
+  automation: manual
+- id: TC-036
+  title: Backup and restore
+  area: maintenance
+  priority: P1
+  preconditions: Production deployed
+  steps: [Run npm run envs -- backup production, Edit a unit, Run restore with the backup name]
+  expected: Unit text is back to the state at backup time
+  automation: manual
+- id: TC-037
+  title: Dependency update does not break the build
+  area: maintenance
+  priority: P2
+  preconditions: New dependency versions installed
+  steps: [Run npm run typecheck, Run npm test, Deploy to staging, Run the smoke tests]
+  expected: All green before promotion
+  automation: manual
+- id: TC-038
+  title: Deployment is logged
+  area: maintenance
+  priority: P3
+  preconditions: none
+  steps: [Deploy, Open .deploy/history.jsonl]
+  expected: One line with action, env, version, previous version and duration
+  automation: manual
+- id: TC-039
+  title: Oversized request body is refused
+  area: maintenance
+  priority: P2
+  preconditions: Signed in as editor
+  steps: [POST a 100 KB form to /content/photosynthesis]
+  expected: Request is refused, content is unchanged
+  automation: unit
+- id: TC-040
+  title: Responses carry version headers
+  area: maintenance
+  priority: P3
+  preconditions: Instance deployed
+  steps: [Send GET /api/health, Inspect headers]
+  expected: x-app-version and x-app-env headers are present
+  automation: unit

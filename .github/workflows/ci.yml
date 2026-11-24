@@ -1,0 +1,53 @@
+name: release-pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-test-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Type check
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+      - name: Validate test cases
+        run: npm run testcases:validate
+      - name: Unit tests (Vitest)
+        run: npm test
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Release flow (staging -> smoke -> promote -> production -> smoke -> rollback -> restore)
+        run: npm run pipeline
+      - name: Generate bug reports from seeded faults
+        run: npm run tickets
+        env:
+          TICKETS_OUT: reports/tickets
+      - name: Regression verification of all tickets
+        run: npm run verify
+      - name: Job summary
+        if: always()
+        run: |
+          for f in reports/checklist-*-*.md reports/verification-log.md; do
+            [ -f "$f" ] && { cat "$f"; echo; } >> "$GITHUB_STEP_SUMMARY"
+          done
+      - name: Upload checklist reports and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-reports
+          path: |
+            reports/
+            .deploy/history.jsonl
+            .deploy/envs/*/app.log
+          if-no-files-found: warn

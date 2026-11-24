@@ -1,0 +1,36 @@
+{
+  "name": "release-smoke-test-lab",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Maintenance and testing kit for a simulated education platform: staged releases, smoke tests, checklists, test cases, bug tickets and regression verification.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.check.json",
+    "start": "node dist/main.js",
+    "test": "vitest run",
+    "testcases:validate": "tsx testcases/validate.ts",
+    "release": "tsx envs/cli.ts release",
+    "deploy": "tsx envs/cli.ts deploy",
+    "promote": "tsx envs/cli.ts promote",
+    "rollback": "tsx envs/cli.ts rollback",
+    "envs:status": "tsx envs/cli.ts status",
+    "envs:stop": "tsx envs/cli.ts stop",
+    "smoke": "playwright test",
+    "checklist": "tsx checklists/run.ts",
+    "tickets": "tsx tickets/generate.ts",
+    "verify": "tsx verify/regression.ts",
+    "pipeline": "bash envs/pipeline.sh"
+  },
+  "dependencies": {
+    "yaml": "2.9.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "22.20.5",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7"
+  }
+}

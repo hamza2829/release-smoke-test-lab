@@ -1,0 +1,4 @@
+{
+  "staging": { "port": 4101, "requiresGateFrom": null },
+  "production": { "port": 4102, "requiresGateFrom": "staging" }
+}
